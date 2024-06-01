@@ -5,12 +5,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Stream;
 
+import org.springframework.cloud.circuitbreaker.resilience4j.Resilience4JCircuitBreakerFactory;
 import org.springframework.stereotype.Service;
 
 import com.netflix.discovery.EurekaClient;
 import com.portafolio.micros.reportms.helper.ReportHelper;
 import com.portafolio.micros.reportms.models.Company;
 import com.portafolio.micros.reportms.models.WebSite;
+import com.portafolio.micros.reportms.repositories.CompaniesFallBackRepository;
 import com.portafolio.micros.reportms.repositories.CompaniesRepository;
 
 import lombok.AllArgsConstructor;
@@ -20,13 +22,31 @@ import lombok.extern.slf4j.Slf4j;
 @AllArgsConstructor
 @Slf4j
 public class ReportServiceImpl implements ReportService{
-	
+
 	private final CompaniesRepository companiesRepository;
 	private final ReportHelper reportTemplate;
+	private final CompaniesFallBackRepository companiesFallBackRepository;
+	private final Resilience4JCircuitBreakerFactory circuitBrakerFactory;
+	
 	
 	@Override
 	public String makeReport(String name) {
+		
+		var circuitBraket = this.circuitBrakerFactory.create("company-circuitBraker");
+		
+		return circuitBraket.run(
+				()-> this.makeReportMain(name),
+				throwable -> this.makeReportFallback(name, throwable)
+				);
+			}
+	
+	public String makeReportMain(String name) {
 		return this.reportTemplate.readTemplate(companiesRepository.getByName(name).orElseThrow());
+	}
+	
+	public String makeReportFallback(String name,Throwable error ) {
+		log.warn(error.getMessage());
+		return this.reportTemplate.readTemplate(companiesFallBackRepository.getByName(name));
 	}
 
 	@Override
