@@ -14,6 +14,7 @@ import com.portafolio.micros.reportms.models.Company;
 import com.portafolio.micros.reportms.models.WebSite;
 import com.portafolio.micros.reportms.repositories.CompaniesFallBackRepository;
 import com.portafolio.micros.reportms.repositories.CompaniesRepository;
+import com.portafolio.micros.reportms.streams.ReportPublisher;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ public class ReportServiceImpl implements ReportService{
 	private final ReportHelper reportTemplate;
 	private final CompaniesFallBackRepository companiesFallBackRepository;
 	private final Resilience4JCircuitBreakerFactory circuitBrakerFactory;
-	
+	private final ReportPublisher reportPublisher;
 	
 	@Override
 	public String makeReport(String name) {
@@ -63,6 +64,7 @@ public class ReportServiceImpl implements ReportService{
 				.founder(placeholders.get(2))
 				.webSites(webSites)
 				.build();
+		this.reportPublisher.publishReport(report);
 		this.companiesRepository.postByName(company);
 		return "saved";
 	}
